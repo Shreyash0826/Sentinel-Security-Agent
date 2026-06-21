@@ -1,0 +1,14 @@
+2026-06-20 23:44:27,378 - INFO - Sentinel started.
+2026-06-20 23:46:30,066 - INFO - Sentinel started.
+2026-06-20 23:48:45,346 - INFO - Sentinel started.
+2026-06-20 23:51:58,436 - INFO - Sentinel started.
+2026-06-20 23:52:03,866 - INFO - Sentinel started.
+2026-06-20 23:52:11,072 - WARNING - Potential Ransomware Detected in ./protected_folder/attack_test.bin | Entropy: 8.00
+2026-06-20 23:52:11,073 - WARNING - THREAT NEUTRALIZED: attack_test.bin moved to ./quarantine
+2026-06-20 23:52:11,575 - INFO - File deleted: ./protected_folder/attack_test.bin
+2026-06-20 23:54:22,210 - INFO - Sentinel started.
+2026-06-20 23:54:46,906 - INFO - Sentinel started.
+2026-06-20 23:55:03,422 - INFO - New file detected: ./protected_folder/malicious_payload.bin
+2026-06-20 23:55:03,494 - WARNING - Potential Ransomware Detected in ./protected_folder/malicious_payload.bin | Entropy: 8.00
+2026-06-20 23:55:03,495 - WARNING - THREAT NEUTRALIZED: malicious_payload.bin moved to ./quarantine
+2026-06-20 23:55:03,996 - INFO - File deleted: ./protected_folder/malicious_payload.bin
