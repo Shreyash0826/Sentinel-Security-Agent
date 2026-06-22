@@ -12,3 +12,12 @@
 2026-06-20 23:55:03,494 - WARNING - Potential Ransomware Detected in ./protected_folder/malicious_payload.bin | Entropy: 8.00
 2026-06-20 23:55:03,495 - WARNING - THREAT NEUTRALIZED: malicious_payload.bin moved to ./quarantine
 2026-06-20 23:55:03,996 - INFO - File deleted: ./protected_folder/malicious_payload.bin
+2026-06-22 01:21:12,011 - INFO - Sentinel started.
+2026-06-22 01:21:31,668 - INFO - New file detected: ./protected_folder/malicious_payload.bin
+2026-06-22 01:21:31,743 - WARNING - Potential Ransomware Detected in ./protected_folder/malicious_payload.bin | Entropy: 8.00
+2026-06-22 01:21:31,744 - WARNING - THREAT NEUTRALIZED: malicious_payload.bin moved to ./quarantine
+2026-06-22 01:21:39,313 - INFO - File deleted: ./protected_folder/malicious_payload.bin
+2026-06-22 01:27:08,016 - INFO - Sentinel started.
+2026-06-22 01:27:28,915 - INFO - New file detected: ./protected_folder/test.log
+2026-06-22 01:27:42,688 - INFO - New file detected: ./protected_folder/test.docx
+2026-06-22 01:32:44,411 - INFO - Sentinel started.

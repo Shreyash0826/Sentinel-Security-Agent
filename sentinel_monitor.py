@@ -2,6 +2,8 @@ import logging
 import time
 import os
 import shutil
+import requests
+from multiprocessing import Process
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from entropy_engine import calculate_entropy
@@ -10,22 +12,24 @@ from entropy_engine import calculate_entropy
 THRESHOLD = 6.5
 PROTECTED_DIR = "./protected_folder"
 QUARANTINE_DIR = "./quarantine"
+SENSITIVE_EXTENSIONS = {'.docx', '.pdf', '.jpg', '.xlsx', '.txt', '.zip', '.bin'}
+WEBHOOK_URL = "https://discord.com/api/webhooks/1518483866229407765/ntwAteDgjx1ahsqYdGZETe5jQLSeCmE6LXQ68rGXFp2dMYa-nDGN2Xw3S0B3G0Tx_xxo"
 
-# Configure logging to save events to sentinel.log
+# Configure logging
 logging.basicConfig(
     filename='sentinel.log',
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-# Ensure required directories exist
-if not os.path.exists(PROTECTED_DIR):
-    os.makedirs(PROTECTED_DIR)
-if not os.path.exists(QUARANTINE_DIR):
-    os.makedirs(QUARANTINE_DIR)
+def send_alert(message):
+    try:
+        data = {"content": f"🚨 **Sentinel Security Alert:** {message}"}
+        requests.post(WEBHOOK_URL, json=data)
+    except Exception as e:
+        logging.error(f"Failed to send Discord alert: {e}")
 
 def quarantine_file(file_path):
-    """Moves a suspicious file to the quarantine directory."""
     try:
         file_name = os.path.basename(file_path)
         dest_path = os.path.join(QUARANTINE_DIR, file_name)
@@ -33,43 +37,41 @@ def quarantine_file(file_path):
         msg = f"THREAT NEUTRALIZED: {file_name} moved to {QUARANTINE_DIR}"
         print(f"[!!!] {msg}")
         logging.warning(msg)
+        send_alert(msg)
     except Exception as e:
         error_msg = f"ERROR: Could not quarantine {file_path}: {e}"
         print(f"[!] {error_msg}")
         logging.error(error_msg)
 
-class SentinelHandler(FileSystemEventHandler):
-    def on_deleted(self, event):
-        if not event.is_directory:
-            logging.info(f"File deleted: {event.src_path}")
-            print(f"[*] ALERT: File deleted: {event.src_path}")
+if not os.path.exists(PROTECTED_DIR):
+    os.makedirs(PROTECTED_DIR)
+if not os.path.exists(QUARANTINE_DIR):
+    os.makedirs(QUARANTINE_DIR)
 
-    def on_created(self, event):
-        if not event.is_directory:
-            logging.info(f"New file detected: {event.src_path}")
-            print(f"[*] New file detected: {event.src_path}")
+class SentinelHandler(FileSystemEventHandler):
+    def process_file(self, file_path):
+        """Heavy lifting function to run in a separate process."""
+        entropy = calculate_entropy(file_path)
+        print(f"[!] Monitoring: {file_path} | Entropy: {entropy:.2f}")
+        if entropy > THRESHOLD:
+            msg = f"Potential Ransomware Detected in {file_path} | Entropy: {entropy:.2f}"
+            print(f"[!!!] ALERT: {msg}")
+            logging.warning(msg)
+            quarantine_file(file_path)
 
     def on_modified(self, event):
         file_name = os.path.basename(event.src_path)
-        
-        # Ignore hidden files (starting with .)
-        if file_name.startswith('.'):
+        if file_name.startswith('.') or QUARANTINE_DIR in event.src_path:
             return
-        
-        # Ignore events inside the quarantine folder to prevent loops
-        if QUARANTINE_DIR in event.src_path:
+
+        _, ext = os.path.splitext(file_name)
+        if ext.lower() not in SENSITIVE_EXTENSIONS:
             return
 
         if not event.is_directory:
-            entropy = calculate_entropy(event.src_path)
-            print(f"[!] Monitoring: {event.src_path} | Entropy: {entropy:.2f}")
-            
-            # If threshold is exceeded, trigger neutralization
-            if entropy > THRESHOLD:
-                msg = f"Potential Ransomware Detected in {event.src_path} | Entropy: {entropy:.2f}"
-                print(f"[!!!] ALERT: {msg}")
-                logging.warning(msg)
-                quarantine_file(event.src_path)
+            # Offload heavy work to a separate process to keep the loop responsive
+            p = Process(target=self.process_file, args=(event.src_path,))
+            p.start()
 
 if __name__ == "__main__":
     event_handler = SentinelHandler()
@@ -79,15 +81,11 @@ if __name__ == "__main__":
     print(f"[*] Sentinel started. Monitoring {PROTECTED_DIR}...")
     logging.info("Sentinel started.")
     
-    # Start the observer background thread
     observer.start()
-    
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
         print("\n[*] Stopping Sentinel...")
         observer.stop()
-    
-    # Safely join the thread
     observer.join()
