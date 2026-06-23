@@ -3,17 +3,13 @@ import time
 import os
 import shutil
 import requests
+import hashlib
+import threading
 from multiprocessing import Process
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from entropy_engine import calculate_entropy
-
-# Configuration
-THRESHOLD = 6.5
-PROTECTED_DIR = "./protected_folder"
-QUARANTINE_DIR = "./quarantine"
-SENSITIVE_EXTENSIONS = {'.docx', '.pdf', '.jpg', '.xlsx', '.txt', '.zip', '.bin'}
-WEBHOOK_URL = "https://discord.com/api/webhooks/1518483866229407765/ntwAteDgjx1ahsqYdGZETe5jQLSeCmE6LXQ68rGXFp2dMYa-nDGN2Xw3S0B3G0Tx_xxo"
+from config import * # Importing all configuration settings
 
 # Configure logging
 logging.basicConfig(
@@ -21,6 +17,29 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
+def calculate_file_hash(file_path):
+    sha256_hash = hashlib.sha256()
+    try:
+        with open(file_path, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
+    except Exception:
+        return None
+
+def integrity_heartbeat():
+    """Background thread to perform periodic integrity scans."""
+    while True:
+        time.sleep(300) 
+        for root, dirs, files in os.walk(PROTECTED_DIR):
+            for file in files:
+                file_path = os.path.join(root, file)
+                if any(file.lower().endswith(ext) for ext in SENSITIVE_EXTENSIONS):
+                    file_hash = calculate_file_hash(file_path)
+                    if file_hash and file_hash not in TRUSTED_HASHES:
+                        if calculate_entropy(file_path) > THRESHOLD:
+                            quarantine_file(file_path)
 
 def send_alert(message):
     try:
@@ -35,57 +54,42 @@ def quarantine_file(file_path):
         dest_path = os.path.join(QUARANTINE_DIR, file_name)
         shutil.move(file_path, dest_path)
         msg = f"THREAT NEUTRALIZED: {file_name} moved to {QUARANTINE_DIR}"
-        print(f"[!!!] {msg}")
         logging.warning(msg)
         send_alert(msg)
     except Exception as e:
-        error_msg = f"ERROR: Could not quarantine {file_path}: {e}"
-        print(f"[!] {error_msg}")
-        logging.error(error_msg)
+        logging.error(f"ERROR: Could not quarantine {file_path}: {e}")
 
-if not os.path.exists(PROTECTED_DIR):
-    os.makedirs(PROTECTED_DIR)
-if not os.path.exists(QUARANTINE_DIR):
-    os.makedirs(QUARANTINE_DIR)
+if not os.path.exists(PROTECTED_DIR): os.makedirs(PROTECTED_DIR)
+if not os.path.exists(QUARANTINE_DIR): os.makedirs(QUARANTINE_DIR)
 
 class SentinelHandler(FileSystemEventHandler):
     def process_file(self, file_path):
-        """Heavy lifting function to run in a separate process."""
+        if calculate_file_hash(file_path) in TRUSTED_HASHES:
+            return
+        
         entropy = calculate_entropy(file_path)
-        print(f"[!] Monitoring: {file_path} | Entropy: {entropy:.2f}")
         if entropy > THRESHOLD:
-            msg = f"Potential Ransomware Detected in {file_path} | Entropy: {entropy:.2f}"
-            print(f"[!!!] ALERT: {msg}")
-            logging.warning(msg)
+            logging.warning(f"Ransomware Detected: {file_path} | Entropy: {entropy:.2f}")
             quarantine_file(file_path)
 
     def on_modified(self, event):
         file_name = os.path.basename(event.src_path)
-        if file_name.startswith('.') or QUARANTINE_DIR in event.src_path:
+        if file_name.startswith('.') or os.path.abspath(QUARANTINE_DIR) in os.path.abspath(event.src_path):
             return
-
         _, ext = os.path.splitext(file_name)
-        if ext.lower() not in SENSITIVE_EXTENSIONS:
-            return
-
-        if not event.is_directory:
-            # Offload heavy work to a separate process to keep the loop responsive
-            p = Process(target=self.process_file, args=(event.src_path,))
-            p.start()
+        if ext.lower() in SENSITIVE_EXTENSIONS and not event.is_directory:
+            Process(target=self.process_file, args=(event.src_path,)).start()
 
 if __name__ == "__main__":
-    event_handler = SentinelHandler()
+    threading.Thread(target=integrity_heartbeat, daemon=True).start()
+    
     observer = Observer()
-    observer.schedule(event_handler, PROTECTED_DIR, recursive=False)
-    
-    print(f"[*] Sentinel started. Monitoring {PROTECTED_DIR}...")
-    logging.info("Sentinel started.")
-    
+    observer.schedule(SentinelHandler(), PROTECTED_DIR, recursive=True)
     observer.start()
+    
+    print(f"[*] Sentinel active. Monitoring {PROTECTED_DIR}...")
     try:
-        while True:
-            time.sleep(1)
+        while True: time.sleep(1)
     except KeyboardInterrupt:
-        print("\n[*] Stopping Sentinel...")
         observer.stop()
     observer.join()

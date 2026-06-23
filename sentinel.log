@@ -21,3 +21,11 @@
 2026-06-22 01:27:28,915 - INFO - New file detected: ./protected_folder/test.log
 2026-06-22 01:27:42,688 - INFO - New file detected: ./protected_folder/test.docx
 2026-06-22 01:32:44,411 - INFO - Sentinel started.
+2026-06-23 01:08:49,286 - INFO - Sentinel started with recursive monitoring.
+2026-06-23 01:16:43,695 - INFO - Sentinel started with recursive monitoring and hash validation.
+2026-06-23 01:17:53,566 - INFO - Sentinel started with recursive monitoring and hash validation.
+2026-06-23 01:20:54,314 - INFO - Sentinel started with recursive monitoring and hash validation.
+2026-06-23 01:21:47,674 - INFO - Sentinel started with recursive monitoring and hash validation.
+2026-06-23 01:23:45,945 - INFO - Sentinel started with recursive monitoring and hash validation.
+2026-06-23 01:26:20,255 - INFO - Sentinel started with recursive monitoring and hash validation.
+2026-06-23 01:31:17,414 - INFO - Sentinel started with recursive monitoring and hash validation.
